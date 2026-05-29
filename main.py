@@ -4,12 +4,13 @@ import config
 from player import Player
 
 def load_level(level_number):
-    """ Алгоритм загрузки карты"""
+    """ Алгоритм загрузки карты уровня из файла"""
     filename = f"level{level_number}.txt"
     platforms = []
     magnets = []
     crystals = []
     exits = []
+    lavas = [] # Список для зон смерти
     player_positions = {}
     
     try:
@@ -33,6 +34,8 @@ def load_level(level_number):
                         crystals.append(rect)
                     elif char == 'E':
                         exits.append(rect)
+                    elif char == 'X':
+                        lavas.append(rect)
                     elif char == 'F':
                         player_positions['F'] = (rect.x, rect.y)
                     elif char == 'W':
@@ -41,22 +44,20 @@ def load_level(level_number):
     except FileNotFoundError:
         return None
         
-    return platforms, magnets, crystals, exits, player_positions
+    return platforms, magnets, crystals, exits, lavas, player_positions
 
 def draw_menu(screen, font, start_btn, exit_btn):
-    """ Отрисовка главного меню"""
     screen.fill(config.COLOR_BG)
-    
-    # Название игры
-    title_text = font.render("Fire and water 2", True, (255, 255, 255))
+    title_text = font.render("Fire_and_Water_remake)", True, (255, 255, 255))
     screen.blit(title_text, (config.SCREEN_WIDTH // 2 - title_text.get_width() // 2, 120))
     
-    # Кнопка СТАРТ
+    sub_text = pygame.font.SysFont('Courier New', 16).render("Project", True, (120, 120, 130))
+    screen.blit(sub_text, (config.SCREEN_WIDTH // 2 - sub_text.get_width() // 2, 160))
+    
     pygame.draw.rect(screen, (50, 150, 50), start_btn, border_radius=6)
     start_txt = font.render("PLAY", True, (255, 255, 255))
     screen.blit(start_txt, (start_btn.centerx - start_txt.get_width() // 2, start_btn.centery - start_txt.get_height() // 2))
     
-    # Кнопка ВЫХОД
     pygame.draw.rect(screen, (150, 50, 50), exit_btn, border_radius=6)
     exit_txt = font.render("EXIT", True, (255, 255, 255))
     screen.blit(exit_txt, (exit_btn.centerx - exit_txt.get_width() // 2, exit_btn.centery - exit_txt.get_height() // 2))
@@ -64,28 +65,22 @@ def draw_menu(screen, font, start_btn, exit_btn):
 def main():
     pygame.init()
     screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
-    pygame.display.set_caption("Elemental Odyssey: Magnetic Fields")
+    pygame.display.set_caption("Fire_andWater_remake")
     clock = pygame.time.Clock()
     
-    # Состояния игры: "MENU" или "GAME"
     game_state = "MENU"
-    
-    # Хитбоксы для кнопок меню
     start_button = pygame.Rect(config.SCREEN_WIDTH // 2 - 100, 250, 200, 50)
     exit_button = pygame.Rect(config.SCREEN_WIDTH // 2 - 100, 330, 200, 50)
     
-    # Системный шрифт для меню и HUD
     main_font = pygame.font.SysFont('Courier New', 24, bold=True)
     ui_font = pygame.font.SysFont('Courier New', 20, bold=True)
     
-    # Данные игры
     current_level = 1
     score = 0
     game_over = False
     
-    # Инициализация первого уровня
     level_data = load_level(current_level)
-    platforms, magnets, crystals, exits, player_positions = level_data
+    platforms, magnets, crystals, exits, lavas, player_positions = level_data
     
     fire_keys = {'left': pygame.K_LEFT, 'right': pygame.K_RIGHT, 'jump': pygame.K_UP}
     water_keys = {'left': pygame.K_a, 'right': pygame.K_d, 'jump': pygame.K_w}
@@ -102,22 +97,17 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 is_running = False
-                
-            # Обработка кликов мыши в МЕНЮ
             if event.type == pygame.MOUSEBUTTONDOWN and game_state == "MENU":
                 if event.button == 1:
                     if start_button.collidepoint(mouse_pos):
                         game_state = "GAME"
-                    elif exit_button.collidepoint(mouse_pos):
+                    elif exit_button.choose_point(mouse_pos) or exit_button.collidepoint(mouse_pos):
                         is_running = False
         
-        # ЛОГИКА СОСТОЯНИЙ
         if game_state == "MENU":
-            # Рисую только меню
             draw_menu(screen, main_font, start_button, exit_button)
             
         elif game_state == "GAME":
-            # Игровой процесс
             if not game_over:
                 fire_boy.update(platforms, magnets)
                 water_girl.update(platforms, magnets)
@@ -127,6 +117,18 @@ def main():
                     if fire_boy.rect.colliderect(crystal) or water_girl.rect.colliderect(crystal):
                         crystals.remove(crystal)
                         score += 10
+                
+                # АЛГОРИТМ ПРОВЕРКИ СМЕРТИ
+                hit_lava_f = any(fire_boy.rect.colliderect(lava) for lava in lavas)
+                hit_lava_w = any(water_girl.rect.colliderect(lava) for lava in lavas)
+                
+                if hit_lava_f or hit_lava_w:
+                    # Респавн: возвращаю на начальные точки текущего уровня
+                    fire_boy.rect.x, fire_boy.rect.y = fx, fy
+                    water_girl.rect.x, water_girl.rect.y = wx, wy
+                    fire_boy.velocity_x = fire_boy.velocity_y = 0
+                    water_girl.velocity_x = water_girl.velocity_y = 0
+                    score = max(0, score - 5) 
                 
                 # Проверка финиша
                 fire_on_exit = any(fire_boy.rect.colliderect(exit_rect) for exit_rect in exits)
@@ -139,13 +141,13 @@ def main():
                     if level_data is None:
                         game_over = True
                     else:
-                        platforms, magnets, crystals, exits, player_positions = level_data
+                        platforms, magnets, crystals, exits, lavas, player_positions = level_data
                         fx, fy = player_positions.get('F', (100, 100))
                         wx, wy = player_positions.get('W', (150, 100))
                         fire_boy.rect.x, fire_boy.rect.y = fx, fy
                         water_girl.rect.x, water_girl.rect.y = wx, wy
             
-            # Рендеринг игрового мира
+            # Отрисовка
             screen.fill(config.COLOR_BG)
             
             for platform in platforms:
@@ -164,24 +166,28 @@ def main():
             for exit_rect in exits:
                 pygame.draw.rect(screen, config.COLOR_EXIT, exit_rect)
                 
+            # Рисую ловушки
+            for lava in lavas:
+                pygame.draw.rect(screen, config.COLOR_LAVA, lava, border_radius=2)
+                
             fire_boy.draw(screen)
             water_girl.draw(screen)
             
-            # Нижний интерфейс
+            # Нижний HUD
             pygame.draw.rect(screen, (40, 40, 45), (0, 300, config.SCREEN_WIDTH, 300))
             
             if not game_over:
                 level_text = ui_font.render(f"LEVEL: {current_level} / 5", True, (255, 255, 255))
                 score_text = ui_font.render(f"SCORE: {score}", True, (255, 215, 0))
-                controls_f = ui_font.render("FIRE (Red): Arrows to move", True, config.COLOR_FIRE)
-                controls_w = ui_font.render("WATER (Blue): WASD to move", True, config.COLOR_WATER)
+                controls_f = ui_font.render("FIRE (Red): Arrows", True, config.COLOR_FIRE)
+                controls_w = ui_font.render("WATER (Blue): WASD", True, config.COLOR_WATER)
                 
                 screen.blit(level_text, (30, 330))
                 screen.blit(score_text, (30, 370))
-                screen.blit(controls_f, (400, 330))
-                screen.blit(controls_w, (400, 370))
+                screen.blit(controls_f, (450, 330))
+                screen.blit(controls_w, (450, 370))
             else:
-                win_text = ui_font.render("Congratulations! You passed the level!", True, (0, 255, 0))
+                win_text = ui_font.render("Congratulations! You passed the level", True, (0, 255, 0))
                 screen.blit(win_text, (config.SCREEN_WIDTH // 2 - win_text.get_width() // 2, 400))
                 
         pygame.display.flip()

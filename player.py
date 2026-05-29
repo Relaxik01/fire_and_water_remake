@@ -47,18 +47,32 @@ class Player:
         
         for mag_rect, mag_type in magnets:
             mag_center = mag_rect.center
-            dx = player_center[0] - mag_center[0]
-            dy = player_center[1] - mag_center[1]
+            dx = mag_center[0] - player_center[0]
+            dy = mag_center[1] - player_center[1]
             dist = math.sqrt(dx**2 + dy**2)
             
             if 0 < dist < config.MAGNET_RADIUS:
-                dir_x = dx / dist
-                dir_y = dy / dist
+                # Базовый коэффициент силы
                 force_magnitude = config.MAGNET_FORCE * (1 - dist / config.MAGNET_RADIUS)
-                final_force = force_magnitude * (mag_type * self.charge)
+                is_repelling = (mag_type == self.charge)
                 
-                self.magnetic_boost_x += dir_x * final_force
-                self.magnetic_boost_y += dir_y * final_force
+                if is_repelling:
+                    # ОТТАЛКИВАНИЕ
+                    dir_x = -dx / dist
+                    dir_y = -dy / dist
+                    self.magnetic_boost_x += dir_x * force_magnitude * 5
+                    self.magnetic_boost_y += dir_y * force_magnitude * 10
+                else:
+                    # ПРИТЯЖЕНИЕ
+                    dir_x = dx / dist
+                    dir_y = dy / dist
+                    
+                    if dist < 40:
+                        self.magnetic_boost_x += dir_x * force_magnitude * 6
+                        self.magnetic_boost_y = 0 
+                    else:
+                        self.magnetic_boost_x += dir_x * force_magnitude * 4
+                        self.magnetic_boost_y += dir_y * force_magnitude * 3
 
     def update(self, platforms, magnets):
         self.handle_input()
@@ -101,7 +115,7 @@ class Player:
         if self.charge == 1:
             # Рисую ОГОНЬ
             points = [
-                (self.rect.centerx, self.rect.top), # Верхушка пламени
+                (self.rect.centerx, self.rect.top),
                 (self.rect.right, self.rect.bottom),
                 (self.rect.left, self.rect.bottom)
             ]
