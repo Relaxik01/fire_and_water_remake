@@ -1,10 +1,24 @@
 import pygame
 import sys
 import config
+import random
 from player import Player
 
+def draw_gradient_bg(screen):
+    # Цвета градиента
+    color_top = (15, 15, 35)    
+    color_bottom = (5, 5, 10)   
+    
+    # Закрашиваю экран с плавным изменением цвета
+    for y in range(screen.get_height()):
+        ratio = y / screen.get_height()
+        r = color_top[0] + (color_bottom[0] - color_top[0]) * ratio
+        g = color_top[1] + (color_bottom[1] - color_top[1]) * ratio
+        b = color_top[2] + (color_bottom[2] - color_top[2]) * ratio
+        pygame.draw.line(screen, (int(r), int(g), int(b)), (0, y), (screen.get_width(), y))
+
 def load_level(level_number):
-    """ Алгоритм загрузки карты уровня из файла"""
+    """ Алгоритм загрузки карты уровня"""
     filename = f"level{level_number}.txt"
     platforms = []
     magnets = []
@@ -90,6 +104,9 @@ def main():
     fire_boy = Player(fx, fy, config.COLOR_FIRE, fire_keys, charge=1)
     water_girl = Player(wx, wy, config.COLOR_WATER, water_keys, charge=-1)
     
+    # Генерирую 100 звезд ОДИН РАЗ при запуске
+    stars = [(random.randint(0, screen.get_width()), random.randint(0, screen.get_height())) for _ in range(100)]
+    
     is_running = True
     while is_running:
         mouse_pos = pygame.mouse.get_pos()
@@ -101,7 +118,7 @@ def main():
                 if event.button == 1:
                     if start_button.collidepoint(mouse_pos):
                         game_state = "GAME"
-                    elif exit_button.choose_point(mouse_pos) or exit_button.collidepoint(mouse_pos):
+                    elif exit_button.collidepoint(mouse_pos):
                         is_running = False
         
         if game_state == "MENU":
@@ -123,7 +140,7 @@ def main():
                 hit_lava_w = any(water_girl.rect.colliderect(lava) for lava in lavas)
                 
                 if hit_lava_f or hit_lava_w:
-                    # Респавн: возвращаю на начальные точки текущего уровня
+                    # Респавн
                     fire_boy.rect.x, fire_boy.rect.y = fx, fy
                     water_girl.rect.x, water_girl.rect.y = wx, wy
                     fire_boy.velocity_x = fire_boy.velocity_y = 0
@@ -147,9 +164,14 @@ def main():
                         fire_boy.rect.x, fire_boy.rect.y = fx, fy
                         water_girl.rect.x, water_girl.rect.y = wx, wy
             
-            # Отрисовка
-            screen.fill(config.COLOR_BG)
+            # 1. Рисую градиент вместо обычной заливки
+            draw_gradient_bg(screen)
+        
+            # 2. Поверх градиента рисую звёзды
+            for star in stars:
+                pygame.draw.circle(screen, (220, 220, 220), star, 1)
             
+            # 3. Рисую элементы уровня
             for platform in platforms:
                 pygame.draw.rect(screen, config.COLOR_PLATFORM, platform)
                 
@@ -166,7 +188,6 @@ def main():
             for exit_rect in exits:
                 pygame.draw.rect(screen, config.COLOR_EXIT, exit_rect)
                 
-            # Рисую ловушки
             for lava in lavas:
                 pygame.draw.rect(screen, config.COLOR_LAVA, lava, border_radius=2)
                 
