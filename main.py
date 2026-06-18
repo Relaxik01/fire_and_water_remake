@@ -62,7 +62,7 @@ def load_level(level_number):
 
 def draw_menu(screen, font, start_btn, exit_btn):
     screen.fill(config.COLOR_BG)
-    title_text = font.render("Fire_and_Water_remake)", True, (255, 255, 255))
+    title_text = font.render("Fire_and_Water_remake", True, (255, 255, 255))
     screen.blit(title_text, (config.SCREEN_WIDTH // 2 - title_text.get_width() // 2, 120))
     
     sub_text = pygame.font.SysFont('Courier New', 16).render("Project", True, (120, 120, 130))
